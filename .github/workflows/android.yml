@@ -1,0 +1,57 @@
+# Membangun APK Android (Capacitor) aplikasi KANASA AI dan menaruhnya di Release "android-latest".
+name: AI Company — build APK
+
+on:
+  push:
+    branches: ["main"]
+    paths: ["app/**", ".github/workflows/android.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Cek Android SDK bawaan runner
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" | tail -3 && yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - run: npm ci
+      - run: npm run build:android
+      - run: npx cap sync android
+      - name: Gradle assembleDebug
+        working-directory: app/android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk kanasa-ai-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kanasa-ai-debug-apk
+          path: app/kanasa-ai-debug.apk
+      - name: Publikasikan ke Release "android-latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Kanasa AI — APK Android terbaru (debug)
+          prerelease: true
+          make_latest: false
+          files: app/kanasa-ai-debug.apk
+          body: |
+            APK debug aplikasi KANASA STUDIO — Autonomous AI Company, dibangun otomatis dari commit ${{ github.sha }}.
+            Cara pasang: unduh kanasa-ai-debug.apk di HP Android, izinkan "Instal aplikasi tidak dikenal" untuk browser, lalu buka file.
