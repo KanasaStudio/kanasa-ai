@@ -1,4 +1,4 @@
-import { Lock, LogIn } from "lucide-react";
+import { ArrowLeft, Lock, LogIn } from "lucide-react";
 import { FormEvent, useState } from "react";
 import logo from "../assets/logo-white.png";
 import { Button, Field, inputCls } from "../components/ui";
@@ -24,11 +24,11 @@ export default function LoginPage({ notFounder }: { notFounder?: boolean }) {
   return (
     <div className="pt-safe flex min-h-[100dvh] flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm">
-        <div className="mx-auto mb-6 flex w-fit items-center gap-3 rounded-3xl bg-ink px-4 py-3 text-ink-text shadow-card">
+        <div className="mx-auto mb-6 flex w-fit items-center gap-3 rounded-3xl bg-[#7E2938] px-4 py-3 text-white shadow-card">
           <img src={logo} alt="" className="h-12 w-12" />
-          <div className="text-xl font-black leading-tight">Kanasa<br />Studio</div>
+          <div className="font-pixel text-xl leading-tight">KANASA<br />STUDIO</div>
         </div>
-        <h1 className="text-center text-2xl font-black">Autonomous AI Company</h1>
+        <h1 className="font-pixel text-center text-2xl">Autonomous AI Company</h1>
         <p className="mt-1 text-center text-sm text-muted">Masuk sebagai Founder untuk membuka kantor virtual dan tim AI-mu.</p>
         {notFounder ? (
           <div className="mt-6 rounded-3xl border border-bad/40 bg-bad-soft p-4 text-sm text-bad">
@@ -44,6 +44,7 @@ export default function LoginPage({ notFounder }: { notFounder?: boolean }) {
             <p className="flex items-center justify-center gap-1.5 text-center text-xs text-muted"><Lock className="h-3.5 w-3.5" /> Pakai akun owner website Kanasa Studio.</p>
           </form>
         )}
+        {!notFounder && <a href="#/" className="mx-auto mt-5 flex w-fit items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold text-muted hover:text-text"><ArrowLeft className="h-4 w-4" /> Kembali ke beranda</a>}
       </div>
     </div>
   );

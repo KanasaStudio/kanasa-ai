@@ -87,7 +87,7 @@ export default function FinancePage() {
     const total = [...m.values()].reduce((a, b) => a + b, 0) || 1;
     return [...m.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => ({
       k, v, pct: (v / total) * 100,
-      name: k === "ceo" ? "AURELIA-01 (CEO)" : departments.find((d) => d.id === k)?.name ?? k,
+      name: k === "ceo" ? "Alice (CEO)" : departments.find((d) => d.id === k)?.name ?? k,
       color: k === "ceo" ? "#1b1b1b" : departments.find((d) => d.id === k)?.color ?? "#999",
     }));
   }, [usage, employees, departments]);

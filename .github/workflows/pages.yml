@@ -32,6 +32,8 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - name: Salin efek suara ElevenLabs dari Supabase Storage
+        run: node scripts/fetch-sfx.mjs
       - run: npm run build
       - run: cp dist/index.html dist/404.html && touch dist/.nojekyll
       - uses: actions/configure-pages@v5

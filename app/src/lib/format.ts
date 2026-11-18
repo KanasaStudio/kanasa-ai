@@ -50,4 +50,5 @@ export const usd = (n: number, digits = 2) => new Intl.NumberFormat("en-US", { s
 export const num = (n: number) => new Intl.NumberFormat("id-ID").format(n || 0);
 export const compact = (n: number) => new Intl.NumberFormat("id-ID", { notation: "compact", maximumFractionDigits: 1 }).format(n || 0);
 
-export const PROVIDER_LABEL = { gemini: "Google Gemini", anthropic: "Anthropic Claude", openai: "OpenAI" } as const;
+import { PROVIDER_META } from "./providers";
+export const PROVIDER_LABEL = Object.fromEntries(Object.values(PROVIDER_META).map((m) => [m.id, m.label])) as Record<keyof typeof PROVIDER_META, string>;

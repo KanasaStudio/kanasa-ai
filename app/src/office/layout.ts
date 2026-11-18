@@ -91,7 +91,7 @@ export function buildPath(from: { x: number; z: number }, fromEntry: { x: number
   return pts.filter((p, i) => !near(p, i === 0 ? from : pts[i - 1]));
 }
 
-export const AURELIA_SPOTS = {
+export const CEO_SPOTS = {
   idle: { x: 1.6, y: 2.6, z: -6.3 },
   think: { x: -1.1, y: 3.0, z: AISLE_Z },
   meet: { x: MEETING.x, y: 2.5, z: MEETING.z },

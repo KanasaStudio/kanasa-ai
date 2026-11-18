@@ -54,7 +54,7 @@ export function bubbleText(e: Employee, ctx: OfficeContext): string {
     case "paused": return "Aku sedang dijeda dulu ya.";
     default:
       if (e.status_note?.startsWith("Menunggu persetujuan")) return "Draf-ku menunggu persetujuanmu, Founder.";
-      if (e.status_note?.startsWith("Revisi diminta")) return "AURELIA minta revisi, aku kerjakan sebentar lagi.";
+      if (e.status_note?.startsWith("Revisi diminta")) return "Alice minta revisi, aku kerjakan sebentar lagi.";
       if (queued) return `Masih ada ${queued} tugas di antreanku.`;
       if (lastDone && lastDone.kind === "research" && Date.now() - Date.parse(lastDone.completed_at ?? lastDone.updated_at) < 86400_000)
         return `Aku menemukan hal menarik di riset: ${short(lastDone.title, 34)}!`;

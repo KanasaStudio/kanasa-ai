@@ -6,7 +6,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { ANON_KEY, db, errMessage, getSettings, keyName, log, SUPABASE_URL, vaultGet } from "./db.ts";
 import { kickoff, planDirective, runScheduleAction, tick } from "./engine.ts";
 import { chatWithEmployee, groupMeeting } from "./chat.ts";
-import { listModels, maskKey, Provider, PROVIDERS, providerLabel, suggestDefaultModel } from "./providers.ts";
+import { accountInfo, isProvider, listModels, maskKey, providerLabel, suggestDefaultModel } from "./providers.ts";
+import { freeModelsAgeHours, refreshFreeModels } from "./freemodels.ts";
+import { importAudio } from "./audio.ts";
 import { sendPush, vapidPublicKey } from "./push.ts";
 
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void };
@@ -42,7 +44,6 @@ async function isEngine(req: Request) {
   return !!engineKeyCache && k === engineKeyCache;
 }
 
-const isProvider = (p: unknown): p is Provider => typeof p === "string" && (PROVIDERS as string[]).includes(p);
 
 // Rate limit sederhana untuk aksi yang memanggil model (per menit).
 async function rateLimited(purpose: string, perMinute: number) {
@@ -62,8 +63,19 @@ Deno.serve(async (req) => {
     // ---------------- Engine (cron) ----------------
     if (action === "tick") {
       if (!(await isEngine(req))) return json({ error: "unauthorized" }, 401);
-      background(tick(String(body.trigger ?? "cron")));
+      background((async () => {
+        await tick(String(body.trigger ?? "cron"));
+        if ((await freeModelsAgeHours()) > 24) await refreshFreeModels();
+      })());
       return json({ accepted: true });
+    }
+
+    // Aksi pemeliharaan yang boleh dijalankan engine (kunci Vault) maupun Founder.
+    if (action === "free_models_refresh" || action === "audio_import") {
+      if (!(await isEngine(req)) && !(await isFounder(req))) return json({ error: "unauthorized" }, 401);
+      if (action === "free_models_refresh") return json({ ok: true, ...(await refreshFreeModels()) });
+      const items = Array.isArray(body.items) ? body.items : [];
+      return json({ ok: true, results: await importAudio(items) });
     }
 
     // ---------------- Founder ----------------
@@ -71,7 +83,7 @@ Deno.serve(async (req) => {
 
     switch (action) {
       case "status": {
-        const { data: keys } = await db.from("ai_provider_keys").select("provider,status,default_model,masked");
+        const { data: keys } = await db.from("ai_provider_keys").select("provider,status,default_model,masked,billing,cooldown_until");
         return json({ vapidPublicKey: await vapidPublicKey(), providers: keys ?? [] });
       }
 
@@ -79,7 +91,8 @@ Deno.serve(async (req) => {
         const provider = body.provider;
         const apiKey = String(body.apiKey ?? "").trim();
         if (!isProvider(provider)) return json({ error: "Provider tidak dikenal" }, 400);
-        if (apiKey.length < 20 || apiKey.length > 300 || /\s/.test(apiKey)) return json({ error: "Format API key tidak valid" }, 400);
+        if (apiKey.length < 16 || apiKey.length > 400 || /\s/.test(apiKey)) return json({ error: "Format API key tidak valid" }, 400);
+        const billing = ["free", "paid", "unknown"].includes(body.billing) ? body.billing : undefined;
         let models;
         try {
           models = await listModels(provider, apiKey);
@@ -92,7 +105,8 @@ Deno.serve(async (req) => {
         if (vErr) throw vErr;
         const { error } = await db.from("ai_provider_keys").upsert({
           provider, masked: maskKey(apiKey), status: "connected", last_error: null, last_tested_at: new Date().toISOString(),
-          models, default_model: chosen, enabled: true,
+          models, default_model: chosen, enabled: true, cooldown_until: null, cooldown_reason: null,
+          account_info: await accountInfo(provider, apiKey), ...(billing ? { billing } : {}),
         });
         if (error) throw error;
         const settings = await getSettings();
@@ -104,7 +118,7 @@ Deno.serve(async (req) => {
           .eq("status", "blocked").ilike("last_error", "%provider%");
         await db.from("ai_tasks").update({ status: "queued", last_error: null, not_before: new Date().toISOString() })
           .eq("status", "blocked").ilike("last_error", "%model default%");
-        background((async () => { await kickoff(); await tick("connect"); })());
+        background((async () => { await kickoff(); await refreshFreeModels(); await tick("connect"); })());
         return json({ ok: true, models, default_model: chosen });
       }
 
@@ -119,6 +133,7 @@ Deno.serve(async (req) => {
           await db.from("ai_provider_keys").update({
             status: "connected", last_error: stillValid ? null : "Model default tidak lagi tersedia, pilih ulang.",
             last_tested_at: new Date().toISOString(), models, default_model: stillValid ? row?.default_model : suggestDefaultModel(body.provider, models),
+            account_info: await accountInfo(body.provider, key),
           }).eq("provider", body.provider);
           return json({ ok: true, models: models.length });
         } catch (e) {
@@ -132,6 +147,20 @@ Deno.serve(async (req) => {
         const { data: row } = await db.from("ai_provider_keys").select("models").eq("provider", body.provider).single();
         if (!row || !(row.models as any[]).some((m) => m.id === body.model)) return json({ error: "Model tidak ada di daftar provider" }, 400);
         await db.from("ai_provider_keys").update({ default_model: body.model }).eq("provider", body.provider);
+        return json({ ok: true });
+      }
+
+      case "provider_billing": {
+        if (!isProvider(body.provider)) return json({ error: "Provider tidak dikenal" }, 400);
+        if (!["free", "paid", "unknown"].includes(body.billing)) return json({ error: "Status biaya tidak valid" }, 400);
+        await db.from("ai_provider_keys").update({ billing: body.billing }).eq("provider", body.provider);
+        return json({ ok: true });
+      }
+
+      case "provider_reset_cooldown": {
+        if (!isProvider(body.provider)) return json({ error: "Provider tidak dikenal" }, 400);
+        await db.from("ai_provider_keys").update({ cooldown_until: null, cooldown_reason: null }).eq("provider", body.provider);
+        await log("founder", "founder", "Founder", "security", `Cooldown ${providerLabel(body.provider)} direset manual`);
         return json({ ok: true });
       }
 
@@ -163,7 +192,7 @@ Deno.serve(async (req) => {
           objective: objective.slice(0, 3900), priority, source: body.source === "chat" ? "chat" : "founder",
         }).select("*").single();
         if (error) throw error;
-        await db.from("ai_messages").insert({ thread: "dm:aurelia", sender_kind: "founder", sender_id: "founder", content: `Perintah ${d.code}: ${objective}`, meta: { directive_id: d.id } });
+        await db.from("ai_messages").insert({ thread: "dm:alice", sender_kind: "founder", sender_id: "founder", content: `Perintah ${d.code}: ${objective}`, meta: { directive_id: d.id } });
         await log("founder", "founder", "Founder", "task_assignment", `Founder memberi perintah ${d.code}`, objective);
         background((async () => { await planDirective(d.id); await tick("command"); })());
         return json({ ok: true, directive: d });

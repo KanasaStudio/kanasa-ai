@@ -11,7 +11,7 @@ const media = () => window.matchMedia("(prefers-color-scheme: dark)");
 export function applyTheme(pref: ThemePref) {
   const dark = pref === "dark" || (pref === "system" && media().matches);
   document.documentElement.classList.toggle("dark", dark);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#060B19" : "#1B1B1B");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#171518" : "#7E2938");
   return dark;
 }
 

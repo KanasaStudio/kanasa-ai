@@ -1,4 +1,5 @@
-import { Download, LogOut, Monitor, Moon, Plus, Smartphone, Sun, Trash2 } from "lucide-react";
+import { ChevronRight, Download, LogOut, Monitor, Moon, Plus, Smartphone, Sun, Trash2 } from "lucide-react";
+import { IconMusic } from "../components/icons";
 import { useEffect, useState } from "react";
 import { PageShell } from "../components/Layout";
 import { Button, Card, Field, inputCls, SectionTitle, Segmented, Toggle } from "../components/ui";
@@ -22,7 +23,7 @@ export default function SettingsPage() {
   const session = useStore((s) => s.session);
   const toast = useStore((s) => s.toast);
   const { pref, setPref } = useTheme();
-  const [mode2d, setMode2d] = useLocalPref<boolean>("kanasa-office-2d", false);
+  const [view, setView] = useLocalPref<"pixel" | "3d">("kanasa-office-view", "pixel");
   const [quality, setQuality] = useLocalPref<"high" | "low">("kanasa-quality", window.innerWidth < 768 ? "low" : "high");
   const [draft, setDraft] = useState<Partial<Settings>>({});
   const [schedule, setSchedule] = useState<any[]>([]);
@@ -63,8 +64,15 @@ export default function SettingsPage() {
           { value: "dark", label: <span className="flex items-center gap-1.5"><Moon className="h-4 w-4" /> Gelap</span> },
           { value: "system", label: <span className="flex items-center gap-1.5"><Monitor className="h-4 w-4" /> Ikuti sistem</span> },
         ]} />
-        <Toggle label="Kantor mode 2D" hint="Tampilan ringan tanpa 3D untuk HP yang kurang kuat." checked={mode2d} onChange={setMode2d} />
-        <Toggle label="Grafis 3D kualitas tinggi" hint="Bayangan & anti-aliasing. Matikan untuk hemat baterai." checked={quality === "high"} onChange={(x) => setQuality(x ? "high" : "low")} />
+        <Toggle label="Kantor pixel art" hint="Tampilan utama yang ringan. Matikan untuk memakai kantor 3D lama." checked={view === "pixel"} onChange={(x) => setView(x ? "pixel" : "3d")} />
+        {view === "3d" && <Toggle label="Grafis 3D kualitas tinggi" hint="Bayangan & anti-aliasing. Matikan untuk hemat baterai." checked={quality === "high"} onChange={(x) => setQuality(x ? "high" : "low")} />}
+      </Card>
+
+      <SectionTitle>Musik & suara</SectionTitle>
+      <Card as="button" onClick={() => { location.hash = "#/musik"; }} className="lift flex w-full items-center gap-3 p-4 text-left">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent-soft text-accent-text"><IconMusic size={22} /></span>
+        <span className="min-w-0 flex-1"><span className="block font-black">Playlist & volume</span><span className="block text-xs text-muted">Impor lagu sendiri sebagai musik latar berulang, atur volume master, musik, efek suara, dan suasana kantor.</span></span>
+        <ChevronRight className="h-5 w-5 text-muted" />
       </Card>
 
       <SectionTitle>Pasang aplikasi</SectionTitle>
@@ -100,7 +108,7 @@ export default function SettingsPage() {
 
       <SectionTitle action={dirty ? <Button size="sm" variant="primary" onClick={saveDraft}>Simpan</Button> : undefined}>Objektif & riset</SectionTitle>
       <Card className="space-y-3 p-4">
-        <Field label="Objektif harian" hint="Direncanakan AURELIA-01 setiap pagi pukul 07:00 (kosongkan bila tidak ada).">
+        <Field label="Objektif harian" hint="Direncanakan Alice setiap pagi pukul 07:00 (kosongkan bila tidak ada).">
           <textarea className={`${inputCls} min-h-20`} value={v("daily_objective")} onChange={(e) => setDraft({ ...draft, daily_objective: e.target.value })} placeholder="Mis. Siapkan peluncuran paket aset 3D Roblox bulan depan." />
         </Field>
         <Field label="Topik riset (satu per baris)"><textarea className={`${inputCls} min-h-32`} value={v("research_topics").join("\n")} onChange={(e) => setDraft({ ...draft, research_topics: e.target.value.split("\n").map((x) => x.trim()).filter(Boolean) })} /></Field>

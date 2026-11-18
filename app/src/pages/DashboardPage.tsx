@@ -36,7 +36,7 @@ export default function DashboardPage() {
       const [l, o, b] = await Promise.all([
         supabase.from("ai_activity_logs").select("*").order("created_at", { ascending: false }).limit(15),
         supabase.from("ai_opportunities").select("*").order("created_at", { ascending: false }).limit(5),
-        supabase.from("ai_messages").select("*").eq("thread", "group").eq("sender_id", "aurelia").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("ai_messages").select("*").eq("thread", "group").eq("sender_id", "alice").order("created_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
       setLogs(l.data ?? []); setOpps(o.data ?? []); setBriefing(b.data);
     })();
@@ -71,7 +71,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3">
           {ceo && <Avatar appearance={ceo.appearance} status={ceo.status} size={48} />}
           <div className="min-w-0 flex-1">
-            <div className="text-xs font-bold text-white/60">AURELIA-01 · AI CEO</div>
+            <div className="text-xs font-bold text-white/60">Alice · AI CEO</div>
             <div className="font-black">Apa objektif kita hari ini, Founder?</div>
           </div>
         </div>
@@ -126,14 +126,14 @@ export default function DashboardPage() {
             </div>
           ) : <Empty title="Tidak ada keputusan tertunda" text="Aksi eksternal, keuangan, dan deploy akan muncul di sini sebelum dijalankan." />}
 
-          <SectionTitle>Briefing AURELIA-01</SectionTitle>
+          <SectionTitle>Briefing Alice</SectionTitle>
           <Card className="p-4">
             {briefing ? (
               <>
                 <div className="mb-1 flex items-center gap-2 text-xs font-bold text-muted"><Bot className="h-4 w-4 text-accent" /> {dateTime(briefing.created_at)}</div>
                 <Markdown text={briefing.content} />
               </>
-            ) : <p className="text-sm text-muted">Belum ada briefing. AURELIA-01 menulis briefing otomatis tiap hari kerja pukul 07:00 WIB dan laporan eksekutif pukul 17:00.</p>}
+            ) : <p className="text-sm text-muted">Belum ada briefing. Alice menulis briefing otomatis tiap hari kerja pukul 07:00 WIB dan laporan eksekutif pukul 17:00.</p>}
             <Button size="sm" className="mt-3" onClick={() => useStore.getState().openChat("group")}>Buka ruang rapat</Button>
           </Card>
 

@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from "npm:@supabase/supabase-js@2";
-import { callLLM, ChatMsg, LLMResult, Provider, PROVIDERS, ProviderError } from "./providers.ts";
+import { ChatMsg, LLMResult, Provider, ProviderError } from "./providers.ts";
+import { DeferError, route, RouteError, RouteStep } from "./router.ts";
 import { sendPush } from "./push.ts";
 
 export const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -107,24 +108,7 @@ async function pushTo(settings: Settings, priority: string, title: string, body:
 // ---------------------------------------------------------------------------
 // Pemilihan model, anggaran, dan pencatatan biaya
 // ---------------------------------------------------------------------------
-export interface ResolvedModel { provider: Provider; model: string; apiKey: string }
-
-export async function resolveModel(emp: Employee, settings: Settings): Promise<ResolvedModel | { error: string }> {
-  const { data: keys } = await db.from("ai_provider_keys").select("*").eq("status", "connected").eq("enabled", true);
-  const connected = new Map<string, any>((keys ?? []).map((k: any) => [k.provider, k]));
-  if (!connected.size) return { error: "Belum ada API provider yang terhubung. Hubungkan di menu API & Integrasi." };
-  const order: string[] = [emp.provider, settings.default_provider, ...PROVIDERS].filter(Boolean);
-  for (const p of order) {
-    const k = connected.get(p);
-    if (!k) continue;
-    const model = (emp.provider === p && emp.model) ? emp.model : k.default_model;
-    if (!model) continue;
-    const apiKey = await vaultGet(keyName(p as Provider));
-    if (!apiKey) continue;
-    return { provider: p as Provider, model, apiKey };
-  }
-  return { error: "Provider terhubung tetapi model default belum dipilih. Pilih model di menu API & Integrasi." };
-}
+export interface ResolvedModel { provider: Provider; model: string }
 
 export async function checkBudget(emp: Employee, settings: Settings): Promise<string | null> {
   const [{ data: mine }, { data: all }] = await Promise.all([
@@ -157,27 +141,33 @@ export async function recordUsage(rm: ResolvedModel, r: LLMResult, purpose: stri
   return cost;
 }
 
-// Panggil model atas nama karyawan: pilih model, cek anggaran, catat penggunaan.
+// Panggil model atas nama karyawan lewat model router: cek anggaran, pilih provider (dengan fallback), catat penggunaan.
 export async function runAs(emp: Employee, settings: Settings, args: {
   system: string; messages: ChatMsg[]; purpose: string; taskId?: string | null; webSearch?: boolean; json?: boolean;
-  maxTokens?: number; temperature?: number; timeoutMs?: number;
-}): Promise<{ result: LLMResult; rm: ResolvedModel; cost: number | null }> {
-  const rm = await resolveModel(emp, settings);
-  if ("error" in rm) throw new BlockedError(rm.error, "no_provider");
+  maxTokens?: number; temperature?: number; timeoutMs?: number; maxCandidates?: number;
+}): Promise<{ result: LLMResult; rm: ResolvedModel; cost: number | null; steps: RouteStep[] }> {
   const budget = await checkBudget(emp, settings);
   if (budget) throw new BlockedError(budget, "budget");
-  const result = await callLLM({
-    provider: rm.provider, model: rm.model, apiKey: rm.apiKey, system: args.system, messages: args.messages,
-    temperature: args.temperature ?? Number(emp.temperature), maxTokens: args.maxTokens ?? emp.max_output_tokens,
-    webSearch: args.webSearch, json: args.json, timeoutMs: args.timeoutMs,
-  });
-  const cost = await recordUsage(rm, result, args.purpose, emp.id, args.taskId ?? null);
-  return { result, rm, cost };
+  const persona = emp.personality ? `\nKepribadianmu: ${emp.personality}` : "";
+  try {
+    const r = await route({ db, vaultGet, keyName }, emp, settings, {
+      system: args.system + persona, messages: args.messages,
+      temperature: args.temperature ?? Number(emp.temperature), maxTokens: args.maxTokens ?? emp.max_output_tokens,
+      webSearch: args.webSearch, json: args.json, timeoutMs: args.timeoutMs, maxCandidates: args.maxCandidates,
+    });
+    const rm = { provider: r.provider, model: r.model };
+    const cost = await recordUsage(rm, r.result, args.purpose, emp.id, args.taskId ?? null);
+    return { result: r.result, rm, cost, steps: r.steps };
+  } catch (e) {
+    if (e instanceof RouteError && e.kind === "no_provider") throw new BlockedError(e.message, "no_provider", e.steps);
+    throw e;
+  }
 }
 
 export class BlockedError extends Error {
-  constructor(message: string, public kind: "no_provider" | "budget") { super(message); }
+  constructor(message: string, public kind: "no_provider" | "budget", public steps: RouteStep[] = []) { super(message); }
 }
+export { DeferError, RouteError };
 
 export function errMessage(e: unknown): string {
   if (e instanceof ProviderError) return e.message;

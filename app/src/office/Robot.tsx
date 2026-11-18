@@ -3,19 +3,19 @@ import { ThreeEvent, useFrame } from "@react-three/fiber";
 import { memo, useRef } from "react";
 import * as THREE from "three";
 import type { Employee } from "../lib/types";
-import { AURELIA_SPOTS } from "./layout";
+import { CEO_SPOTS } from "./layout";
 
-// AURELIA-01: robot melayang berbentuk logo KANASA STUDIO.
+// Alice (CEO) di tampilan 3D: robot melayang berbentuk logo KANASA STUDIO.
 function RobotImpl({ employee, icon, speech, selected, onSelect }: {
   employee: Employee; icon: string; speech: string | null; selected: boolean; onSelect: (id: string) => void;
 }) {
   const root = useRef<THREE.Group>(null!);
   const glow = useRef<THREE.MeshStandardMaterial>(null!);
-  const pos = useRef(new THREE.Vector3(AURELIA_SPOTS.idle.x, AURELIA_SPOTS.idle.y, AURELIA_SPOTS.idle.z));
+  const pos = useRef(new THREE.Vector3(CEO_SPOTS.idle.x, CEO_SPOTS.idle.y, CEO_SPOTS.idle.z));
   const target =
-    employee.status === "meeting" ? AURELIA_SPOTS.meet
-    : employee.status === "thinking" || employee.status === "reviewing" ? AURELIA_SPOTS.think
-    : AURELIA_SPOTS.idle;
+    employee.status === "meeting" ? CEO_SPOTS.meet
+    : employee.status === "thinking" || employee.status === "reviewing" ? CEO_SPOTS.think
+    : CEO_SPOTS.idle;
 
   useFrame((st, dt) => {
     const t = st.clock.elapsedTime;
@@ -84,7 +84,7 @@ function RobotImpl({ employee, icon, speech, selected, onSelect }: {
         <div className="flex flex-col items-center gap-1" style={{ transform: "translateY(-50%)" }}>
           {speech && (
             <div className="bubble-in pointer-events-auto w-[188px] cursor-pointer rounded-2xl border border-accent/40 bg-surface px-3 py-2 text-[11px] font-bold leading-snug text-text shadow-card" onClick={() => onSelect(employee.id)}>
-              <div className="mb-0.5 text-[10px] font-black text-accent-text">AURELIA-01 · CEO</div>
+              <div className="mb-0.5 text-[10px] font-black text-accent-text">Alice · CEO</div>
               {speech}
             </div>
           )}

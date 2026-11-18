@@ -1,4 +1,4 @@
-// Chat Founder ↔ karyawan dan rapat grup bersama AURELIA-01.
+// Chat Founder ↔ karyawan dan rapat grup bersama Alice.
 import { db, Employee, getEmployees, getSettings, honesty, log, runAs, setEmployee } from "./db.ts";
 import { ChatMsg, extractJson } from "./providers.ts";
 
@@ -76,7 +76,7 @@ Balas HANYA JSON: {"reply": "teks balasan", ${proposalField}}`;
 
   try {
     const { result } = await runAs(emp, settings, {
-      system, messages: toChat(rows, emp.id, names), purpose: "chat", json: true, maxTokens: 900, temperature: Math.min(0.8, Number(emp.temperature) + 0.2),
+      system, messages: toChat(rows, emp.id, names), purpose: "chat", json: true, maxTokens: 900, timeoutMs: 45_000, maxCandidates: 3, temperature: Math.min(0.8, Number(emp.temperature) + 0.2),
     });
     const out = extractJson(result.text) ?? { reply: result.text };
     const reply = clip(String(out.reply ?? result.text).trim(), 3000) || "…";
@@ -107,7 +107,7 @@ export async function groupMeeting(text: string) {
 Tim:\n${roster}
 Pilih 0-2 karyawan yang paling relevan untuk ikut menanggapi (tidak boleh yang DIJEDA).
 Balas HANYA JSON: {"reply": "", "speakers": ["employee_id"], "proposed_directive": null | {"objective": "", "priority": "medium"}}`,
-      messages: toChat(rows, ceo.id, names), purpose: "chat", json: true, maxTokens: 700,
+      messages: toChat(rows, ceo.id, names), purpose: "chat", json: true, maxTokens: 700, timeoutMs: 45_000, maxCandidates: 3,
     });
     const plan = extractJson(result.text) ?? { reply: result.text, speakers: [] };
     const meta: Record<string, unknown> = {};
@@ -122,8 +122,8 @@ Balas HANYA JSON: {"reply": "", "speakers": ["employee_id"], "proposed_directive
       const state = await employeeState(sp);
       try {
         const { result: r2 } = await runAs(sp, settings, {
-          system: `${sp.system_instructions}\n${honesty()}\nKamu ikut rapat grup bersama Founder dan AURELIA-01. Tanggapi singkat (maks 80 kata) dari sudut keahlianmu.\n${state}`,
-          messages: toChat(rows2, sp.id, names), purpose: "chat", maxTokens: 500,
+          system: `${sp.system_instructions}\n${honesty()}\nKamu ikut rapat grup bersama Founder dan Alice. Tanggapi singkat (maks 80 kata) dari sudut keahlianmu.\n${state}`,
+          messages: toChat(rows2, sp.id, names), purpose: "chat", maxTokens: 500, timeoutMs: 45_000, maxCandidates: 3,
         });
         const { data: m2 } = await db.from("ai_messages").insert({ thread: "group", sender_kind: "employee", sender_id: sp.id, content: clip(r2.text.trim(), 2000) || "…" }).select("*").single();
         out.push(m2);

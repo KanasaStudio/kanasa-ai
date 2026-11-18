@@ -5,3 +5,7 @@ app/qa/
 *.log
 .env
 .env.*
+app/public/sfx/
+app/mock.html
+app/mockharness/
+app/.preview/

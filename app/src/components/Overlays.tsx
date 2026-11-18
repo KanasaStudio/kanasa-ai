@@ -214,11 +214,11 @@ export function ChatSheet() {
   };
 
   const nameOf = (m: Message) => m.sender_kind === "founder" ? "Kamu" : m.sender_kind === "system" ? "Sistem" : employees.find((x) => x.id === m.sender_id)?.name ?? "AI";
-  const title = target === "group" ? "Rapat bersama AURELIA-01" : emp?.name ?? "";
+  const title = target === "group" ? "Rapat bersama Alice" : emp?.name ?? "";
   const runDirective = async (objective: string, priority?: string) => {
     try {
       await callAI("command", { objective, priority: priority ?? "medium", source: "chat" });
-      toast("Perintah dikirim ke AURELIA-01", "ok");
+      toast("Perintah dikirim ke Alice", "ok");
     } catch (err) { toast((err as Error).message, "bad"); }
   };
 
@@ -231,7 +231,7 @@ export function ChatSheet() {
           {emp ? <Avatar appearance={emp.appearance} status={emp.status} size={36} /> : <span className="grid h-9 w-9 place-items-center rounded-full bg-accent-soft text-accent"><MessageCircle className="h-5 w-5" /></span>}
           <span className="min-w-0">
             <span className="block truncate text-base leading-tight">{title}</span>
-            <span className="block text-xs font-bold text-muted">{target === "group" ? "AURELIA memilih anggota tim yang relevan" : emp ? STATUS_LABEL[emp.status] : ""}</span>
+            <span className="block text-xs font-bold text-muted">{target === "group" ? "Alice memilih anggota tim yang relevan" : emp ? STATUS_LABEL[emp.status] : ""}</span>
           </span>
         </span>
       }
@@ -297,7 +297,7 @@ export function ChatSheet() {
 }
 
 // ---------------------------------------------------------------------------
-// Perintah Founder → AURELIA-01
+// Perintah Founder → Alice
 // ---------------------------------------------------------------------------
 const EXAMPLES = [
   "Riset peluang animasi AI paling menjanjikan di Indonesia.",
@@ -320,22 +320,22 @@ export function CommandSheet() {
     setBusy(true);
     try {
       await callAI("command", { objective: objective.trim(), priority });
-      toast("AURELIA-01 sedang merencanakan tugas…", "ok");
+      toast("Alice sedang merencanakan tugas…", "ok");
       setObjective("");
       setOpen(false);
       navigate("ceo");
     } catch (e) { toast((e as Error).message, "bad"); } finally { setBusy(false); }
   };
   return (
-    <Sheet open={open} onClose={() => setOpen(false)} title="Perintah untuk AURELIA-01"
+    <Sheet open={open} onClose={() => setOpen(false)} title="Perintah untuk Alice"
       footer={<Button variant="primary" className="w-full" size="lg" loading={busy} disabled={objective.trim().length < 3} onClick={submit}><Sparkles className="h-5 w-5" /> Kirim ke AI CEO</Button>}>
       {!providers && (
         <div className="mb-3 rounded-2xl border border-warn/40 bg-warn-soft p-3 text-sm font-bold text-warn">
-          Belum ada API AI terhubung. Perintah tetap tersimpan, tapi AURELIA baru bisa merencanakan setelah API dihubungkan.
+          Belum ada API AI terhubung. Perintah tetap tersimpan, tapi Alice baru bisa merencanakan setelah API dihubungkan.
           <button onClick={() => { setOpen(false); navigate("api"); }} className="mt-1 block underline">Hubungkan API sekarang</button>
         </div>
       )}
-      <p className="mb-3 text-sm text-muted">Tulis objektif dengan bahasa biasa. AURELIA-01 akan menganalisis, memecahnya menjadi tugas, menugaskan karyawan yang tepat, lalu memantau hasilnya.</p>
+      <p className="mb-3 text-sm text-muted">Tulis objektif dengan bahasa biasa. Alice akan menganalisis, memecahnya menjadi tugas, menugaskan karyawan yang tepat, lalu memantau hasilnya.</p>
       <textarea value={objective} onChange={(e) => setObjective(e.target.value)} className={`${inputCls} min-h-32`} placeholder="Contoh: Riset peluang animasi AI di Indonesia lalu siapkan konsep produk digital pertama kita." autoFocus />
       <div className="mt-3">
         <div className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-muted">Prioritas</div>
@@ -418,7 +418,7 @@ export function TaskDetail({ taskId, onClose }: { taskId: string | null; onClose
             {emp && <Avatar appearance={emp.appearance} status={emp.status} size={40} />}
             <div className="min-w-0 flex-1 text-sm">
               <div className="font-extrabold">{emp?.name}</div>
-              <div className="text-xs text-muted">Dibuat {dateTime(t.created_at)} oleh {t.created_by === "founder" ? "Founder" : t.created_by === "schedule" ? "jadwal harian" : "AURELIA-01"}</div>
+              <div className="text-xs text-muted">Dibuat {dateTime(t.created_at)} oleh {t.created_by === "founder" ? "Founder" : t.created_by === "schedule" ? "jadwal harian" : "Alice"}</div>
             </div>
             <div className="w-20"><ProgressBar value={t.progress} tone={t.status === "failed" ? "bad" : t.status === "completed" ? "ok" : "accent"} /></div>
           </div>

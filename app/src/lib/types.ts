@@ -1,4 +1,8 @@
-export type Provider = "gemini" | "anthropic" | "openai";
+export type Provider =
+  | "gemini" | "anthropic" | "openai" | "openrouter" | "nvidia" | "groq" | "cerebras" | "huggingface" | "mistral"
+  | "deepseek" | "together" | "fireworks";
+export type Cap = "text" | "json" | "tools" | "vision" | "reasoning" | "code" | "long_context" | "web_search";
+export interface ModelInfo { id: string; label: string; context?: number | null; caps?: Cap[]; free?: boolean | null }
 export type EmployeeStatus =
   | "idle" | "working" | "researching" | "thinking" | "meeting" | "resting" | "reviewing" | "completed" | "failed" | "paused";
 export type TaskStatus = "queued" | "running" | "awaiting_approval" | "completed" | "failed" | "blocked" | "cancelled";
@@ -9,7 +13,7 @@ export interface Appearance {
   style?: "robot";
   skin?: string;
   hair?: string;
-  hairStyle?: "messy" | "bun" | "spiky" | "ponytail" | "short" | "cap";
+  hairStyle?: "messy" | "bun" | "spiky" | "ponytail" | "short" | "cap" | "long";
   outfit?: string;
   accent?: string;
   accessory?: string[];
@@ -26,7 +30,7 @@ export interface Employee {
   provider: Provider | null; model: string | null; temperature: number; max_output_tokens: number; context_messages: number;
   memory_scopes: string[]; tool_permissions: string[]; daily_token_budget: number; daily_usd_budget: number; max_steps: number;
   status: EmployeeStatus; paused: boolean; rest_until: string | null; current_task_id: string | null; status_note: string | null;
-  appearance: Appearance; last_active_at: string | null; status_changed_at: string;
+  appearance: Appearance; last_active_at: string | null; status_changed_at: string; personality: string | null;
 }
 
 export interface Source { url: string; title?: string; published?: string | null }
@@ -63,7 +67,18 @@ export interface Message {
 
 export interface ProviderKey {
   provider: Provider; masked: string; status: "connected" | "error" | "untested"; last_error: string | null; last_tested_at: string | null;
-  models: { id: string; label: string }[]; default_model: string | null; enabled: boolean; updated_at: string;
+  models: ModelInfo[]; default_model: string | null; enabled: boolean; updated_at: string;
+  billing: "free" | "paid" | "unknown"; cooldown_until: string | null; cooldown_reason: string | null;
+  rate_limit: Record<string, string> | null; account_info: Record<string, any> | null; last_success_at: string | null;
+}
+
+export interface FreeModel {
+  provider: Provider; model: string; label: string | null; context_length: number | null; caps: Cap[];
+  free_status: "verified" | "unverified" | "unavailable"; limits: string | null; source: string; verified_at: string;
+}
+
+export interface ProviderUsage {
+  provider: Provider; calls_today: number; tokens_today: number; usd_today: number; calls_month: number; tokens_month: number; usd_month: number; failed_today: number;
 }
 
 export interface Settings {
@@ -72,7 +87,7 @@ export interface Settings {
   max_tasks_per_directive: number; task_timeout_minutes: number; global_daily_token_limit: number; global_daily_usd_limit: number;
   daily_objective: string; research_topics: string[]; research_regions: string[]; research_per_day: number; rest_minutes: number;
   usd_to_idr: number | null; default_provider: Provider | null; push_critical: boolean; push_high: boolean; push_normal: boolean;
-  kickoff_done: boolean;
+  kickoff_done: boolean; fallback_enabled: boolean; fallback_order: Provider[]; block_paid: boolean;
 }
 
 export interface Dashboard {

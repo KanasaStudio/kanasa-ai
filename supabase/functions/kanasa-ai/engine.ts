@@ -1,6 +1,6 @@
-// Engine KANASA STUDIO: orkestrasi AURELIA-01, eksekusi tugas karyawan, review, jadwal harian.
+// Engine KANASA STUDIO: orkestrasi Alice, eksekusi tugas karyawan, review, jadwal harian.
 import {
-  BlockedError, db, Employee, errMessage, getEmployees, getSettings, honesty, log, notify, runAs, setEmployee, Settings, Task,
+  BlockedError, db, DeferError, Employee, errMessage, getEmployees, getSettings, honesty, log, notify, runAs, setEmployee, Settings, Task,
 } from "./db.ts";
 import { extractJson, Source } from "./providers.ts";
 
@@ -56,8 +56,8 @@ export async function tick(trigger: string) {
   const { data: stuck } = await db.from("ai_directives").select("*").eq("status", "planning")
     .lt("created_at", new Date(Date.now() - 3 * 60_000).toISOString()).limit(2);
   for (const d of stuck ?? []) {
-    if (Date.parse(d.created_at) < Date.now() - 20 * 60_000) {
-      await db.from("ai_directives").update({ status: "failed", error: "Perencanaan tidak selesai dalam 20 menit" }).eq("id", d.id);
+    if (Date.parse(d.created_at) < Date.now() - 6 * 3600_000) {
+      await db.from("ai_directives").update({ status: "failed", error: `Perencanaan tidak selesai dalam 6 jam. ${d.error ?? ""}`.trim() }).eq("id", d.id);
     } else {
       await planDirective(d.id);
     }
@@ -129,14 +129,16 @@ ${context}
 
 ${format}`;
 
-    const { result, rm, cost } = await runAs(emp, settings, {
+    const { result, rm, cost, steps } = await runAs(emp, settings, {
       system, messages: [{ role: "user", content: user }], purpose: "execute", taskId: task.id,
       webSearch, json: !webSearch, maxTokens: Math.max(emp.max_output_tokens ?? 4096, isResearch ? 6000 : 4096),
     });
     await db.from("ai_task_attempts").update({
       status: "succeeded", provider: rm.provider, model: rm.model, input_tokens: result.inputTokens,
-      output_tokens: result.outputTokens, cost_usd: cost, finished_at: new Date().toISOString(),
+      output_tokens: result.outputTokens, cost_usd: cost, finished_at: new Date().toISOString(), route: steps,
     }).eq("id", attempt!.id);
+    // Router bisa jatuh ke provider tanpa pencarian web: hasil diperlakukan sebagai tanpa web.
+    const webUsed = webSearch && result.webSearchUsed;
 
     const out = extractJson(result.text) ?? { status: "done", summary: clip(result.text, 400), result_markdown: result.text };
     if (!out.result_markdown && !out.summary) throw new Error("Model tidak mengembalikan hasil yang bisa dibaca");
@@ -155,16 +157,16 @@ ${format}`;
     }
 
     // Verifikasi sumber: temuan riset harus menunjuk ke domain yang benar-benar muncul di hasil pencarian.
-    const verified = verifySources(out.findings ?? [], result.sources, webSearch);
+    const verified = verifySources(out.findings ?? [], result.sources, webUsed);
     let resultMd = String(out.result_markdown || out.summary || "");
-    if (webSearch && result.sources.length === 0) {
+    if (webUsed && result.sources.length === 0) {
       resultMd += "\n\n> ⚠️ Pencarian web tidak mengembalikan sumber apa pun untuk tugas ini. Perlakukan isi di atas sebagai belum terverifikasi.";
     }
-    if (isResearch && !webSearch) {
+    if (isResearch && !webUsed) {
       resultMd += "\n\n> ⚠️ Riset ini dikerjakan tanpa akses pencarian web, sehingga tidak ada sumber terbaru yang terverifikasi.";
     }
 
-    // Review oleh AURELIA-01
+    // Review oleh Alice
     const ceo = employees.find((e) => e.is_ceo);
     const shouldReview = settings.ceo_review_enabled && ceo && ceo.id !== emp.id && !ceo.paused &&
       task.revision_count < settings.max_revisions &&
@@ -180,11 +182,11 @@ ${format}`;
           thread: `dm:${emp.id}`, sender_kind: "employee", sender_id: ceo!.id, recipient_id: emp.id, task_id: task.id,
           content: `Revisi untuk ${task.code}: ${review.notes}`, meta: { internal: true, review: true },
         });
-        await setEmployee(emp.id, { status: "idle", current_task_id: null, status_note: `Revisi diminta AURELIA: ${clip(task.title, 60)}` });
-        await log("ceo", ceo!.id, ceo!.name, "ai_decision", `AURELIA-01 meminta revisi ${task.code}`, review.notes, task.id, emp.department_id);
+        await setEmployee(emp.id, { status: "idle", current_task_id: null, status_note: `Revisi diminta Alice: ${clip(task.title, 60)}` });
+        await log("ceo", ceo!.id, ceo!.name, "ai_decision", `Alice meminta revisi ${task.code}`, review.notes, task.id, emp.department_id);
         return;
       }
-      if (review?.notes) resultMd += `\n\n---\n**Review AURELIA-01** (skor ${review.score ?? "-"}/10): ${review.notes}`;
+      if (review?.notes) resultMd += `\n\n---\n**Review Alice** (skor ${review.score ?? "-"}/10): ${review.notes}`;
     }
 
     // Simpan laporan riset & peluang
@@ -192,14 +194,14 @@ ${format}`;
       const { data: rep } = await db.from("ai_research_reports").insert({
         task_id: task.id, employee_id: emp.id, title: task.title, category: task.category, region: task.region,
         summary: clip(out.summary || "", 1500), body: resultMd, findings: verified.findings, sources: result.sources,
-        verified_sources: webSearch && result.sources.length > 0,
+        verified_sources: webUsed && result.sources.length > 0,
       }).select("id").single();
       const opps = Array.isArray(out.opportunities) ? out.opportunities.slice(0, 5) : [];
       for (const o of opps) {
         if (!o?.title) continue;
         const conf = ["low", "medium", "high"].includes(o.confidence) ? o.confidence : "medium";
         // Peluang dari riset tanpa sumber terverifikasi tidak boleh berkeyakinan tinggi.
-        const confidence = (!webSearch || result.sources.length === 0) && conf === "high" ? "medium" : conf;
+        const confidence = (!webUsed || result.sources.length === 0) && conf === "high" ? "medium" : conf;
         await db.from("ai_opportunities").insert({
           report_id: rep?.id, task_id: task.id, title: clip(o.title, 200), description: clip(o.description || "", 1500),
           category: o.category ?? task.category, region: o.region ?? task.region, confidence,
@@ -245,7 +247,7 @@ ${format}`;
       await db.from("ai_approvals").insert({ task_id: task.id, action: task.title, reason: clip(reason, 500), details: clip(out.summary, 1500) });
       await setEmployee(emp.id, { status: "idle", current_task_id: null, status_note: `Menunggu persetujuan Founder: ${clip(task.title, 60)}` });
       await notify({
-        priority: "high", category: "approval", title: "AURELIA-01 butuh keputusan Founder",
+        priority: "high", category: "approval", title: "Alice butuh keputusan Founder",
         body: `${task.code}: ${clip(task.title, 100)} — ${clip(reason, 160)}`, employeeId: emp.id, taskId: task.id,
         link: `#/tugas/${task.id}`, dedupeKey: `approval:${task.id}`,
       });
@@ -265,7 +267,23 @@ ${format}`;
     await checkDirective(task.directive_id);
   } catch (e) {
     const msg = errMessage(e);
-    await db.from("ai_task_attempts").update({ status: "failed", error: clip(msg, 1000), finished_at: new Date().toISOString() }).eq("id", attempt!.id);
+    await db.from("ai_task_attempts").update({
+      status: "failed", error: clip(msg, 1000), finished_at: new Date().toISOString(), route: (e as any)?.steps ?? null,
+    }).eq("id", attempt!.id);
+    if (e instanceof DeferError) {
+      // Semua provider sedang rate limit/kuota habis: tunda tanpa menghabiskan jatah percobaan.
+      await db.from("ai_tasks").update({
+        status: "queued", last_error: clip(msg, 1000), progress: 0, attempts: Math.max(0, task.attempts - 1), not_before: e.until.toISOString(),
+      }).eq("id", task.id);
+      await setEmployee(emp.id, { status: "idle", current_task_id: null, status_note: "Menunggu kuota API pulih" });
+      await notify({
+        priority: "high", category: "provider", title: "Provider AI sedang dibatasi",
+        body: `${clip(msg, 300)} Tugas dilanjutkan otomatis sekitar ${e.until.toLocaleTimeString("id-ID", { timeZone: "Asia/Jakarta", hour: "2-digit", minute: "2-digit" })} WIB.`,
+        link: "#/api", dedupeKey: "provider-cooldown",
+      });
+      await log("system", "router", "Model Router", "security", `${task.code} ditunda: semua provider dibatasi`, clip(msg, 1000), task.id, emp.department_id);
+      return;
+    }
     if (e instanceof BlockedError) {
       await db.from("ai_tasks").update({ status: "blocked", last_error: msg, progress: 0, attempts: Math.max(0, task.attempts - 1) }).eq("id", task.id);
       await setEmployee(emp.id, { status: "idle", current_task_id: null, status_note: clip(msg, 120) });
@@ -338,7 +356,7 @@ async function buildContext(task: Task, emp: Employee, tools: string[]) {
     parts.push("HASIL TUGAS SEBELUMNYA (dependensi):\n" + (depTasks ?? []).map((d: any) =>
       `### ${d.code} ${d.title}\nRingkasan: ${d.result_summary ?? "-"}\n${clip(d.result, 3500)}`).join("\n\n"));
   }
-  if (task.review_notes) parts.push(`CATATAN REVISI DARI AURELIA-01 (wajib ditangani):\n${task.review_notes}\n\nDraf sebelumnya:\n${clip(task.result, 3000)}`);
+  if (task.review_notes) parts.push(`CATATAN REVISI DARI Alice (wajib ditangani):\n${task.review_notes}\n\nDraf sebelumnya:\n${clip(task.result, 3000)}`);
   if (task.kind === "research") {
     const { data: prev } = await db.from("ai_research_reports").select("title,summary,research_date")
       .eq("category", task.category ?? "").order("created_at", { ascending: false }).limit(6);
@@ -414,7 +432,7 @@ JSON: {"verdict": "approve" | "revise", "score": 1-10, "notes": "catatan singkat
 }
 
 // ---------------------------------------------------------------------------
-// Perencanaan directive oleh AURELIA-01
+// Perencanaan directive oleh Alice
 // ---------------------------------------------------------------------------
 export async function planDirective(directiveId: string) {
   const settings = await getSettings();
@@ -448,7 +466,7 @@ DEPARTEMEN: ${(depts ?? []).map((x: any) => `${x.id} (${x.name})`).join(", ")}
 ${mem?.length ? `MEMORI RELEVAN:\n${mem.map((m: any) => `- ${m.title}: ${clip(m.content, 300)}`).join("\n")}` : ""}
 
 Pecah objektif menjadi 1-${max} tugas yang konkret. Aturan:
-- Pilih employee_id dari daftar TIM (bukan AURELIA). Hindari karyawan DIJEDA.
+- Pilih employee_id dari daftar TIM (bukan Alice). Hindari karyawan DIJEDA.
 - "depends_on" berisi indeks (mulai 0) tugas SEBELUMNYA yang harus selesai dulu.
 - Tugas yang butuh informasi terkini wajib "use_web_search": true dan diberikan ke karyawan dengan web_search: ya.
 - Aksi eksternal (publikasi, kirim pesan ke luar, pembelian, transaksi, deploy produksi, hapus data) → "requires_approval": true dan isi "sensitive_reason".
@@ -461,7 +479,7 @@ JSON:
       purpose: "plan", json: true, maxTokens: 4000, temperature: 0.3,
     });
     const plan = extractJson(result.text);
-    if (!plan || !Array.isArray(plan.tasks)) throw new Error("AURELIA-01 tidak menghasilkan rencana JSON yang valid");
+    if (!plan || !Array.isArray(plan.tasks)) throw new Error("Alice tidak menghasilkan rencana JSON yang valid");
 
     const valid = new Set(employees.filter((e) => !e.is_ceo).map((e) => e.id));
     const tasks = plan.tasks.slice(0, max).map((t: any, i: number) => {
@@ -497,19 +515,24 @@ JSON:
       ? `\n\nAku membuat ${tasks.length} tugas:\n${tasks.map((t: any, i: number) => `${i + 1}. ${t.title} → ${employees.find((e) => e.id === t.employee_id)?.name}${t.requires_approval ? " (butuh persetujuanmu)" : ""}`).join("\n")}`
       : ""}`;
     await db.from("ai_messages").insert({
-      thread: "dm:aurelia", sender_kind: "employee", sender_id: ceo.id, content: replyText, meta: { directive_id: d.id },
+      thread: "dm:alice", sender_kind: "employee", sender_id: ceo.id, content: replyText, meta: { directive_id: d.id },
     });
     await db.from("ai_memory").insert({
       scope: "company", kind: "directive", title: `${d.code}: ${clip(d.objective, 150)}`,
-      content: clip(`${d.objective}\n\nAnalisis: ${plan.analysis ?? ""}`, 4000), created_by: "aurelia",
+      content: clip(`${d.objective}\n\nAnalisis: ${plan.analysis ?? ""}`, 4000), created_by: "alice",
     });
-    await log("ceo", ceo.id, ceo.name, "ai_decision", `AURELIA-01 merencanakan ${d.code}: ${tasks.length} tugas`, clip(plan.analysis, 2000));
+    await log("ceo", ceo.id, ceo.name, "ai_decision", `Alice merencanakan ${d.code}: ${tasks.length} tugas`, clip(plan.analysis, 2000));
   } catch (e) {
     const msg = errMessage(e);
+    if (e instanceof DeferError) {
+      // Tetap di tahap perencanaan; tick berikutnya mencoba lagi setelah kuota pulih.
+      await db.from("ai_directives").update({ error: clip(`Menunggu kuota provider: ${msg}`, 1000) }).eq("id", d.id);
+      return;
+    }
     const blocked = e instanceof BlockedError;
     await db.from("ai_directives").update({ status: "failed", error: clip(msg, 1000) }).eq("id", d.id);
     await db.from("ai_messages").insert({
-      thread: "dm:aurelia", sender_kind: "system", content: `Perencanaan ${d.code} gagal: ${msg}`, meta: { directive_id: d.id },
+      thread: "dm:alice", sender_kind: "system", content: `Perencanaan ${d.code} gagal: ${msg}`, meta: { directive_id: d.id },
     });
     await notify({
       priority: "high", category: blocked ? "provider" : "directive_failed", title: `Perencanaan ${d.code} gagal`, body: msg,
@@ -549,8 +572,8 @@ export async function checkDirective(directiveId: string | null) {
     report += `\n\n(Laporan otomatis tanpa AI: ${errMessage(e)})`;
   }
   await db.from("ai_directives").update({ report }).eq("id", directiveId);
-  await db.from("ai_messages").insert({ thread: "dm:aurelia", sender_kind: "employee", sender_id: ceo.id, content: `Laporan ${d.code} selesai:\n\n${report}`, meta: { directive_id: d.id } });
-  await db.from("ai_memory").insert({ scope: "company", kind: "report", title: `Laporan ${d.code}`, content: clip(report, 4000), created_by: "aurelia" });
+  await db.from("ai_messages").insert({ thread: "dm:alice", sender_kind: "employee", sender_id: ceo.id, content: `Laporan ${d.code} selesai:\n\n${report}`, meta: { directive_id: d.id } });
+  await db.from("ai_memory").insert({ scope: "company", kind: "report", title: `Laporan ${d.code}`, content: clip(report, 4000), created_by: "alice" });
   const failed = tasks.filter((t: any) => t.status !== "completed").length;
   await notify({
     priority: failed ? "high" : "normal", category: "directive_done", title: `${d.code} selesai${failed ? ` (${failed} tugas bermasalah)` : ""}`,
@@ -640,7 +663,7 @@ Peluang baru:\n${(opps ?? []).map((o: any) => `- ${o.title} (${o.confidence})`).
         purpose: "report", maxTokens: 900,
       });
       await db.from("ai_messages").insert({ thread: "group", sender_kind: "employee", sender_id: ceo.id, content: result.text.trim(), meta: { briefing: true } });
-      await db.from("ai_memory").insert({ scope: "company", kind: "briefing", title: `Briefing ${new Date().toISOString().slice(0, 10)}`, content: clip(result.text, 4000), created_by: "aurelia" });
+      await db.from("ai_memory").insert({ scope: "company", kind: "briefing", title: `Briefing ${new Date().toISOString().slice(0, 10)}`, content: clip(result.text, 4000), created_by: "alice" });
       if (settings.daily_objective?.trim()) {
         const { data: dir } = await db.from("ai_directives").insert({ objective: settings.daily_objective.trim(), source: "schedule", priority: "medium" }).select("id").single();
         if (dir) await planDirective(dir.id);
@@ -671,7 +694,7 @@ Peluang baru:\n${(opps ?? []).map((o: any) => `- ${o.title} (${o.confidence})`).
       const objective = `Penugasan departemen hari ini. Tentukan maksimal 3 tugas internal bernilai tinggi (riset lanjutan, konsep, draf, rencana) berdasarkan ${settings.daily_objective?.trim() ? `objektif harian Founder: "${settings.daily_objective.trim()}" dan ` : ""}peluang berikut:\n${(opps ?? []).map((o: any) => `- ${o.title} (${o.confidence}): ${clip(o.description, 200)}`).join("\n")}`;
       const { data: dir } = await db.from("ai_directives").insert({ objective: clip(objective, 3900), source: "schedule", priority: "medium" }).select("id").single();
       if (dir) await planDirective(dir.id);
-      return { text: "Penugasan departemen direncanakan AURELIA-01" };
+      return { text: "Penugasan departemen direncanakan Alice" };
     }
     case "production":
     case "execution":
@@ -735,7 +758,7 @@ Menunggu persetujuan Founder: ${pending ?? 0}` }],
         purpose: "report", maxTokens: 1000,
       });
       await db.from("ai_messages").insert({ thread: "group", sender_kind: "employee", sender_id: ceo.id, content: result.text.trim(), meta: { exec_report: true } });
-      await db.from("ai_memory").insert({ scope: "company", kind: "report", title: `Laporan eksekutif ${new Date().toISOString().slice(0, 10)}`, content: clip(result.text, 4000), created_by: "aurelia" });
+      await db.from("ai_memory").insert({ scope: "company", kind: "report", title: `Laporan eksekutif ${new Date().toISOString().slice(0, 10)}`, content: clip(result.text, 4000), created_by: "alice" });
       return { text: "Laporan eksekutif dibuat" };
     }
     case "founder_summary": {

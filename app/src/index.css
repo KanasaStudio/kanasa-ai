@@ -1,56 +1,66 @@
 @import "tailwindcss";
 @import "@fontsource-variable/nunito";
+@import "@fontsource/pixelify-sans/500.css";
+@import "@fontsource/pixelify-sans/700.css";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Token warna: terang = krem/oranye/hitam (referensi desain), gelap = navy KANASA. */
+/* Token warna: crimson/burgundy hangat di atas charcoal (gelap) dan off-white (terang). */
 :root {
-  --bg: #f6f1ea;
+  --bg: #f7f2f3;
   --surface: #ffffff;
-  --surface-2: #fbf8f4;
-  --line: #ebe3d8;
-  --text: #1d1a17;
-  --muted: #7b7168;
-  --ink: #1b1b1b;
-  --ink-text: #ffffff;
-  --accent: #f7931e;
-  --accent-strong: #e87d05;
-  --accent-soft: #fff0df;
-  --accent-text: #9a4d00;
-  --ok: #16a34a;
-  --ok-soft: #e7f7ec;
-  --warn: #d97706;
-  --warn-soft: #fff4e0;
-  --bad: #dc2626;
-  --bad-soft: #fdecec;
-  --info: #0284c7;
-  --info-soft: #e6f4fb;
-  --shadow: 0 1px 2px rgb(60 40 20 / 0.05), 0 6px 20px -8px rgb(60 40 20 / 0.12);
+  --surface-2: #faf5f6;
+  --elevated: #fff9fa;
+  --line: #ecdfe3;
+  --text: #241c20;
+  --muted: #7a6a71;
+  --ink: #241c20;
+  --ink-text: #f8f1f3;
+  --accent: #a83245;
+  --accent-strong: #8f2a3b;
+  --accent-soft: #f8e5e9;
+  --accent-text: #8f2a3b;
+  --accent-2: #7e2938;
+  --pink: #d88a98;
+  --ok: #2f9e5b;
+  --ok-soft: #e4f4ea;
+  --warn: #b7791f;
+  --warn-soft: #fbf0dc;
+  --bad: #c2313e;
+  --bad-soft: #fbe6e8;
+  --info: #3b6fc4;
+  --info-soft: #e6eefb;
+  --shadow: 0 1px 2px rgb(60 20 30 / 0.05), 0 8px 24px -12px rgb(60 20 30 / 0.18);
+  --shadow-lift: 0 2px 4px rgb(60 20 30 / 0.06), 0 16px 32px -14px rgb(90 24 40 / 0.28);
   color-scheme: light;
 }
 
 .dark {
-  --bg: #070c1a;
-  --surface: #101830;
-  --surface-2: #0c1326;
-  --line: #1d2945;
-  --text: #edf1f8;
-  --muted: #8a96b3;
-  --ink: #060b19;
-  --ink-text: #ffffff;
-  --accent: #f7931e;
-  --accent-strong: #ffa53d;
-  --accent-soft: #2a1d10;
-  --accent-text: #ffb766;
-  --ok: #4ade80;
-  --ok-soft: #0f2a1c;
-  --warn: #fbbf24;
-  --warn-soft: #2b2110;
-  --bad: #f87171;
-  --bad-soft: #2d1414;
-  --info: #38bdf8;
-  --info-soft: #0c2235;
-  --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+  --bg: #171518;
+  --surface: #242126;
+  --surface-2: #1d1a1f;
+  --elevated: #302a30;
+  --line: #3a3239;
+  --text: #f4edf0;
+  --muted: #b7abb1;
+  --ink: #120f13;
+  --ink-text: #f4edf0;
+  --accent: #a83245;
+  --accent-strong: #c03f55;
+  --accent-soft: #3a1e27;
+  --accent-text: #eaa2b0;
+  --accent-2: #7e2938;
+  --pink: #d88a98;
+  --ok: #7fd09c;
+  --ok-soft: #1c2b23;
+  --warn: #e9bd62;
+  --warn-soft: #2f2719;
+  --bad: #f08890;
+  --bad-soft: #36191e;
+  --info: #94b6f2;
+  --info-soft: #1c2433;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 10px 28px -14px rgb(0 0 0 / 0.7);
+  --shadow-lift: 0 2px 6px rgb(0 0 0 / 0.4), 0 18px 36px -14px rgb(0 0 0 / 0.75);
   color-scheme: dark;
 }
 
@@ -67,6 +77,9 @@
   --color-accent-strong: var(--accent-strong);
   --color-accent-soft: var(--accent-soft);
   --color-accent-text: var(--accent-text);
+  --color-accent-2: var(--accent-2);
+  --color-pink: var(--pink);
+  --color-elevated: var(--elevated);
   --color-ok: var(--ok);
   --color-ok-soft: var(--ok-soft);
   --color-warn: var(--warn);
@@ -76,7 +89,9 @@
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
   --font-sans: "Nunito Variable", ui-rounded, system-ui, sans-serif;
+  --font-pixel: "Pixelify Sans", "Nunito Variable", monospace;
   --shadow-card: var(--shadow);
+  --shadow-lift: var(--shadow-lift);
 }
 
 html,
@@ -149,6 +164,52 @@ button {
 .md table { border-collapse: collapse; width: 100%; font-size: 0.82rem; display: block; overflow-x: auto; }
 .md th, .md td { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
 .md hr { border: 0; border-top: 1px solid var(--line); margin: 1em 0; }
+
+/* Identitas pixel */
+.font-pixel { font-family: var(--font-pixel); letter-spacing: 0.01em; }
+.eyebrow { font-family: var(--font-pixel); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); }
+.pix-btn {
+  display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px;
+  background: var(--surface); color: var(--text); border: 2px solid var(--line);
+  font-family: var(--font-pixel); font-size: 18px; line-height: 1;
+  box-shadow: 0 3px 0 var(--line); transition: transform .12s cubic-bezier(.3,.7,.4,1), box-shadow .12s;
+}
+.pix-btn:hover { border-color: var(--pink); }
+.pix-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
+.pix-btn:disabled { opacity: .45; }
+.pixelated { image-rendering: pixelated; }
+
+/* Kartu yang terangkat saat hover */
+.lift { transition: transform .22s cubic-bezier(.2,.8,.2,1), box-shadow .22s, border-color .22s; }
+@media (hover: hover) { .lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); } }
+
+/* Loader pixel: tiga blok yang naik bergantian */
+.pix-loader { display: inline-flex; gap: 4px; align-items: flex-end; height: 16px; }
+.pix-loader i { width: 5px; height: 5px; background: var(--accent); animation: pix-hop .9s steps(3) infinite; }
+.pix-loader i:nth-child(2) { animation-delay: .15s; background: var(--pink); }
+.pix-loader i:nth-child(3) { animation-delay: .3s; background: var(--accent-2); }
+@keyframes pix-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* Gelembung ucapan di kantor */
+@keyframes speech-in { from { opacity: 0; transform: translate(-50%, calc(-100% + 6px)) scale(.92); } to { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
+.speech-in { animation: speech-in .28s cubic-bezier(.2,.9,.3,1.2) both; }
+
+/* Denyut koneksi API */
+@keyframes plug-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
+.plug-pulse { animation: plug-pulse 1.6s ease-out infinite; }
+
+/* Kilau sapuan untuk tombol utama */
+.shine { position: relative; overflow: hidden; }
+.shine::after { content: ""; position: absolute; inset: 0; transform: translateX(-120%); background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / .22) 50%, transparent 70%); transition: transform .6s; }
+@media (hover: hover) { .shine:hover::after { transform: translateX(120%); } }
+
+/* Equalizer kecil pemutar musik */
+.eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 12px; }
+.eq i { width: 3px; background: currentColor; animation: eq 1s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: .2s; } .eq i:nth-child(3) { animation-delay: .4s; }
+.eq.eq-sm { height: 10px; }
+.eq.paused i { animation-play-state: paused; height: 4px; }
+@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
 
 @keyframes bubble-in {
   from { opacity: 0; transform: translateY(6px) scale(0.9); }

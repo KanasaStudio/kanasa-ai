@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { sfx } from "../audio/manager";
 import type { Approval, Dashboard, Department, Directive, Employee, Notification, ProviderKey, Settings, Task } from "../lib/types";
 
 type Toast = { id: number; text: string; tone: "ok" | "bad" | "info" };
@@ -37,6 +38,7 @@ interface State {
   signOut: () => Promise<void>;
 }
 
+export const PROVIDER_COLS = "provider,masked,status,last_error,last_tested_at,models,default_model,enabled,updated_at,billing,cooldown_until,cooldown_reason,rate_limit,account_info,last_success_at";
 let channel: RealtimeChannel | null = null;
 let dashTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -99,7 +101,7 @@ export const useStore = create<State>((set, get) => ({
       supabase.from("ai_directives").select("*").order("created_at", { ascending: false }).limit(50),
       supabase.from("ai_notifications").select("*").order("created_at", { ascending: false }).limit(150),
       supabase.from("ai_approvals").select("*").order("created_at", { ascending: false }).limit(100),
-      supabase.from("ai_provider_keys").select("provider,masked,status,last_error,last_tested_at,models,default_model,enabled,updated_at"),
+      supabase.from("ai_provider_keys").select(PROVIDER_COLS),
       supabase.from("ai_settings").select("*").single(),
     ]);
     const err = [deps, emps, tasks, dirs, notifs, appr, prov, sett].find((r) => r.error)?.error;
@@ -138,7 +140,8 @@ export const useStore = create<State>((set, get) => ({
   fx: (kind) => set({ officeFx: { kind, at: Date.now() } }),
   toast: (text, tone = "info") => {
     const id = Date.now() + Math.random();
-    set({ toasts: [...get().toasts, { id, text, tone }] });
+    sfx(tone === "ok" ? "ui-confirm" : tone === "bad" ? "ui-error" : "ui-notify");
+    set({ toasts: [...get().toasts.slice(-3), { id, text, tone }] });
     setTimeout(() => set({ toasts: get().toasts.filter((t) => t.id !== id) }), 3800);
   },
   signOut: async () => {
@@ -163,7 +166,15 @@ function subscribe(set: (p: Partial<State>) => void, get: () => State) {
     .on("postgres_changes", { event: "*", schema: "public", table: "ai_tasks" }, (p) => {
       if (p.eventType === "DELETE") {
         set({ tasks: get().tasks.filter((t) => t.id !== (p.old as Task).id) });
-      } else set({ tasks: upsert(get().tasks, p.new as Task, byCreatedDesc, 300) });
+      } else {
+        const next = p.new as Task;
+        const prev = get().tasks.find((t) => t.id === next.id);
+        if (prev && prev.status !== next.status) {
+          if (next.status === "running") sfx("task-start");
+          else if (next.status === "completed") sfx("task-complete");
+        }
+        set({ tasks: upsert(get().tasks, next, byCreatedDesc, 300) });
+      }
       scheduleDashboard(get);
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "ai_directives" }, (p) => {
@@ -175,6 +186,7 @@ function subscribe(set: (p: Partial<State>) => void, get: () => State) {
         const n = p.new as Notification;
         set({ notifications: upsert(get().notifications, n, byCreatedDesc, 150) });
         if (p.eventType === "INSERT" && n.priority !== "normal") get().toast(n.title, n.priority === "critical" ? "bad" : "info");
+        else if (p.eventType === "INSERT") sfx("ui-notify", { volume: 0.6 });
       }
       scheduleDashboard(get);
     })
@@ -183,8 +195,13 @@ function subscribe(set: (p: Partial<State>) => void, get: () => State) {
       scheduleDashboard(get);
     })
     .on("postgres_changes", { event: "*", schema: "public", table: "ai_provider_keys" }, async () => {
-      const { data } = await supabase.from("ai_provider_keys").select("provider,masked,status,last_error,last_tested_at,models,default_model,enabled,updated_at");
-      if (data) set({ providers: data as ProviderKey[] });
+      const { data } = await supabase.from("ai_provider_keys").select(PROVIDER_COLS);
+      if (data) {
+        const live = (l: ProviderKey[]) => l.filter((k) => k.status === "connected" && k.enabled).length;
+        const before = live(get().providers), after = live(data as ProviderKey[]);
+        if (after > before) sfx("api-connected"); else if (after < before) sfx("api-disconnected");
+        set({ providers: data as ProviderKey[] });
+      }
       scheduleDashboard(get);
     })
     .subscribe();

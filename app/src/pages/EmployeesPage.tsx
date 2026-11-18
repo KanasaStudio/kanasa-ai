@@ -125,6 +125,7 @@ function EmployeeDetail({ id }: { id: string }) {
       {tab === "profil" && (
         <div className="mt-3 space-y-3">
           <Card className="p-4"><div className="text-xs font-black uppercase text-muted">Deskripsi pekerjaan</div><p className="mt-1 text-sm">{emp.job_description}</p></Card>
+          {emp.personality && <Card className="p-4"><div className="text-xs font-black uppercase text-muted">Kepribadian</div><p className="mt-1 text-sm">{emp.personality}</p></Card>}
           <Card className="p-4">
             <div className="text-xs font-black uppercase text-muted">Kemampuan</div>
             <div className="mt-2 flex flex-wrap gap-1.5">{emp.capabilities.map((c) => <Badge key={c} tone="accent">{c}</Badge>)}</div>
@@ -202,7 +203,7 @@ function EmployeeConfig({ emp }: { emp: Employee }) {
   const save = async () => {
     setSaving(true);
     const { error } = await supabase.from("ai_employees").update({
-      job_description: f.job_description, system_instructions: f.system_instructions, capabilities: f.capabilities,
+      job_description: f.job_description, system_instructions: f.system_instructions, capabilities: f.capabilities, personality: f.personality,
       provider: f.provider, model: f.provider ? f.model : null, temperature: f.temperature, max_output_tokens: f.max_output_tokens,
       context_messages: f.context_messages, memory_scopes: f.memory_scopes, tool_permissions: f.tool_permissions,
       daily_token_budget: f.daily_token_budget, daily_usd_budget: f.daily_usd_budget,
@@ -224,11 +225,11 @@ function EmployeeConfig({ emp }: { emp: Employee }) {
           <Field label="Model">
             <select className={inputCls} value={f.model ?? ""} disabled={!prov} onChange={(e) => set("model", e.target.value || null)}>
               <option value="">{prov ? `Default (${prov.default_model ?? "-"})` : "—"}</option>
-              {prov?.models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              {prov?.models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.free ? " · gratis" : ""}{m.caps?.includes("reasoning") ? " · penalaran" : ""}{m.caps?.includes("code") ? " · kode" : ""}</option>)}
             </select>
           </Field>
         </div>
-        <p className="text-xs text-muted">Daftar model diambil langsung dari provider saat API dihubungkan, jadi hanya model yang benar-benar tersedia yang bisa dipilih.</p>
+        <p className="text-xs text-muted">Daftar model diambil langsung dari provider saat API dihubungkan. Jika provider ini sedang dibatasi atau gagal, router otomatis mencoba provider cadangan sesuai urutan di menu API.</p>
         <div className="grid grid-cols-2 gap-3">
           <Field label={`Temperature: ${Number(f.temperature).toFixed(2)}`}>
             <input type="range" min={0} max={1.2} step={0.05} value={f.temperature} onChange={(e) => set("temperature", Number(e.target.value))} className="w-full accent-[var(--accent)]" />
@@ -259,6 +260,7 @@ function EmployeeConfig({ emp }: { emp: Employee }) {
       </Card>
       <Card className="space-y-3 p-4">
         <Field label="Deskripsi pekerjaan"><textarea className={`${inputCls} min-h-20`} value={f.job_description} onChange={(e) => set("job_description", e.target.value)} /></Field>
+        <Field label="Kepribadian" hint="Dipakai di chat dan cara karyawan menulis hasil kerja."><textarea className={`${inputCls} min-h-16`} value={f.personality ?? ""} onChange={(e) => set("personality", e.target.value)} /></Field>
         <Field label="Kemampuan (pisahkan dengan koma)"><input className={inputCls} value={f.capabilities.join(", ")} onChange={(e) => set("capabilities", e.target.value.split(",").map((x) => x.trim()).filter(Boolean))} /></Field>
         <Field label="Instruksi sistem" hint="Kepribadian, aturan kerja, dan standar kualitas karyawan ini."><textarea className={`${inputCls} min-h-40 font-mono text-[13px]`} value={f.system_instructions} onChange={(e) => set("system_instructions", e.target.value)} /></Field>
       </Card>

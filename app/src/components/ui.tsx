@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader2, X } from "lucide-react";
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useRef } from "react";
+import { sfx } from "../audio/manager";
 import type { Tone } from "../lib/format";
 
 const toneCls: Record<Tone, string> = {
@@ -24,8 +25,8 @@ export function Card({ children, className = "", onClick, as = "div" }: { childr
   const Cmp = as as any;
   return (
     <Cmp
-      onClick={onClick}
-      className={`rounded-3xl border border-line bg-surface shadow-card ${onClick ? "text-left transition active:scale-[0.99] hover:border-accent/40" : ""} ${className}`}
+      onClick={onClick ? () => { sfx("ui-click"); onClick(); } : undefined}
+      className={`rounded-3xl border border-line bg-surface shadow-card ${onClick ? "lift text-left active:scale-[0.99]" : ""} ${className}`}
     >
       {children}
     </Cmp>
@@ -34,7 +35,7 @@ export function Card({ children, className = "", onClick, as = "div" }: { childr
 
 type BtnVariant = "primary" | "secondary" | "ghost" | "danger" | "ink";
 const btnCls: Record<BtnVariant, string> = {
-  primary: "bg-accent text-white hover:bg-accent-strong shadow-[0_6px_16px_-6px_rgb(247_147_30/0.7)]",
+  primary: "shine bg-accent text-white hover:bg-accent-strong shadow-[0_6px_16px_-6px_rgb(168_50_69/0.65)]",
   secondary: "bg-surface text-text border border-line hover:border-accent/50",
   ghost: "text-text hover:bg-surface-2",
   danger: "bg-bad text-white hover:opacity-90",
@@ -52,9 +53,10 @@ export function Button({
     <button
       type={type}
       title={title}
-      onClick={onClick}
+      onClick={onClick ? () => { sfx(variant === "danger" ? "ui-menu-close" : "ui-click"); onClick(); } : undefined}
+      onPointerEnter={(e) => e.pointerType === "mouse" && sfx("ui-hover")}
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-extrabold transition active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100 ${sz} ${btnCls[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-2xl font-extrabold transition duration-150 [transition-timing-function:cubic-bezier(.3,.7,.4,1)] hover:-translate-y-px active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:active:scale-100 ${sz} ${btnCls[variant]} ${className}`}
     >
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
@@ -67,8 +69,8 @@ export function IconButton({ children, onClick, label, className = "", badge }: 
     <button
       aria-label={label}
       title={label}
-      onClick={onClick}
-      className={`relative grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-text shadow-card transition active:scale-95 ${className}`}
+      onClick={onClick ? () => { sfx("ui-click"); onClick(); } : undefined}
+      className={`relative grid h-11 w-11 place-items-center rounded-full border border-line bg-surface text-text shadow-card transition hover:border-pink active:scale-95 ${className}`}
     >
       {children}
       {badge && <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-accent ring-2 ring-surface" />}
@@ -78,10 +80,14 @@ export function IconButton({ children, onClick, label, className = "", badge }: 
 
 export function Spinner({ label }: { label?: string }) {
   return (
-    <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-      <Loader2 className="h-5 w-5 animate-spin text-accent" /> {label ?? "Memuat…"}
+    <div className="flex items-center justify-center gap-3 py-10 text-sm text-muted" role="status">
+      <PixLoader /> <span className="font-pixel">{label ?? "Memuat…"}</span>
     </div>
   );
+}
+
+export function PixLoader() {
+  return <span className="pix-loader" aria-hidden="true"><i /><i /><i /></span>;
 }
 
 export function Empty({ icon, title, text, action }: { icon?: ReactNode; title: string; text?: string; action?: ReactNode }) {
@@ -107,10 +113,10 @@ export function Toggle({ checked, onChange, label, hint, disabled }: { checked: 
         role="switch"
         aria-checked={checked}
         disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative h-7 w-12 shrink-0 rounded-full transition ${checked ? "bg-accent" : "bg-line"}`}
+        onClick={() => { sfx("ui-tab"); onChange(!checked); }}
+        className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${checked ? "bg-accent" : "bg-line"}`}
       >
-        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-6" : "left-1"}`} />
+        <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all duration-300 [transition-timing-function:cubic-bezier(.3,1.4,.5,1)] ${checked ? "left-6" : "left-1"}`} />
       </button>
     </label>
   );
@@ -151,7 +157,7 @@ export function PageHeader({ title, subtitle, action }: { title: string; subtitl
   return (
     <div className="mb-4 flex items-end justify-between gap-3">
       <div className="min-w-0">
-        <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+        <h1 className="text-[22px] font-black tracking-tight">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
       </div>
       {action}
@@ -175,6 +181,11 @@ export function Stat({ label, value, sub, icon, tone }: { label: string; value: 
 
 // Bottom sheet di HP, dialog di layar lebar.
 export function Sheet({ open, onClose, title, children, wide, footer }: { open: boolean; onClose: () => void; title?: ReactNode; children: ReactNode; wide?: boolean; footer?: ReactNode }) {
+  const was = useRef(open);
+  useEffect(() => {
+    if (open !== was.current) sfx(open ? "ui-menu-open" : "ui-menu-close");
+    was.current = open;
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const on = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -185,15 +196,15 @@ export function Sheet({ open, onClose, title, children, wide, footer }: { open: 
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+          <div className="absolute inset-0 bg-[#120c10]/50 backdrop-blur-[3px]" onClick={onClose} />
           <motion.div
             role="dialog"
             aria-modal="true"
             className={`relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[28px] border border-line bg-surface shadow-2xl md:rounded-[28px] ${wide ? "md:max-w-3xl" : "md:max-w-lg"}`}
-            initial={{ y: 60, opacity: 0.6 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ type: "spring", damping: 30, stiffness: 340 }}
+            initial={{ y: 70, opacity: 0, scale: 0.98 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 60, opacity: 0, scale: 0.98 }}
+            transition={{ type: "spring", damping: 28, stiffness: 360, mass: 0.8 }}
           >
             <div className="mx-auto mt-2 h-1.5 w-10 rounded-full bg-line md:hidden" />
             {title !== undefined && (
@@ -219,8 +230,8 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
       {options.map((o) => (
         <button
           key={o.value}
-          onClick={() => onChange(o.value)}
-          className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition ${value === o.value ? "bg-ink text-ink-text dark:bg-accent dark:text-white" : "border border-line bg-surface text-muted"}`}
+          onClick={() => { if (o.value !== value) sfx("ui-tab"); onChange(o.value); }}
+          className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold transition duration-200 active:scale-95 ${value === o.value ? "bg-accent text-white shadow-[0_4px_12px_-6px_rgb(168_50_69/0.8)]" : "border border-line bg-surface text-muted hover:text-text"}`}
         >
           {o.label}
           {o.count !== undefined && <span className={`rounded-full px-1.5 text-[11px] ${value === o.value ? "bg-white/20" : "bg-surface-2"}`}>{o.count}</span>}

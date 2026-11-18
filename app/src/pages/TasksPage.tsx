@@ -52,7 +52,7 @@ export default function TasksPage({ id, kindFilter, title }: { id?: string; kind
         ]} />
       </div>
       <div className="mt-3 space-y-2">
-        {!list.length && <Empty icon={<ClipboardList className="h-6 w-6" />} title="Tidak ada tugas di sini" text="Beri perintah ke AURELIA-01 atau tugaskan langsung ke karyawan." />}
+        {!list.length && <Empty icon={<ClipboardList className="h-6 w-6" />} title="Tidak ada tugas di sini" text="Beri perintah ke Alice atau tugaskan langsung ke karyawan." />}
         {list.map((t) => {
           const e = employees.find((x) => x.id === t.employee_id);
           return (

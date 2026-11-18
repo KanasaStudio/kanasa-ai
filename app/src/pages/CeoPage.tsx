@@ -44,7 +44,7 @@ export default function CeoPage() {
           <div className="flex items-center gap-3">
             <Avatar appearance={ceo.appearance} status={ceo.status} size={64} />
             <div className="min-w-0 flex-1">
-              <div className="text-xl font-black">AURELIA-01</div>
+              <div className="text-xl font-black">Alice</div>
               <div className="text-sm text-muted">AI Chief Executive Officer · {STATUS_LABEL[ceo.status]}</div>
               {ceo.status_note && <div className="mt-0.5 truncate text-xs font-bold text-accent-text">{ceo.status_note}</div>}
             </div>
@@ -52,7 +52,7 @@ export default function CeoPage() {
           <p className="mt-3 text-sm text-muted">{ceo.job_description}</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Button variant="primary" onClick={() => setCommandOpen(true)}><Sparkles className="h-4 w-4" /> Perintah</Button>
-            <Button onClick={() => openChat("aurelia")}><MessageCircle className="h-4 w-4" /> Chat</Button>
+            <Button onClick={() => openChat("alice")}><MessageCircle className="h-4 w-4" /> Chat</Button>
             <Button onClick={() => openChat("group")}><Users className="h-4 w-4" /> Rapat</Button>
           </div>
         </Card>
@@ -62,7 +62,7 @@ export default function CeoPage() {
       {settings && (
         <Card className="px-4 py-2">
           <Toggle label="Mode otonom" hint="Jadwal harian boleh membuat riset & tugas sendiri. Jika mati, tim hanya mengerjakan perintahmu." checked={settings.autonomy_enabled} onChange={(v) => setSettings({ autonomy_enabled: v })} />
-          <Toggle label="Review kualitas oleh AURELIA" hint="Hasil penting direview dan bisa diminta revisi." checked={settings.ceo_review_enabled} onChange={(v) => setSettings({ ceo_review_enabled: v })} />
+          <Toggle label="Review kualitas oleh Alice" hint="Hasil penting direview dan bisa diminta revisi." checked={settings.ceo_review_enabled} onChange={(v) => setSettings({ ceo_review_enabled: v })} />
           <Toggle label="Jeda jadwal harian" hint="Jadwal 07:00–18:00 tidak berjalan sementara." checked={settings.schedule_paused} onChange={(v) => setSettings({ schedule_paused: v })} />
           <div className="py-3">
             <Button variant={settings.emergency_stop ? "primary" : "danger"} className="w-full" loading={stopping} onClick={emergency}>
@@ -75,7 +75,7 @@ export default function CeoPage() {
 
       <SectionTitle>Directive & rencana kerja</SectionTitle>
       {!directives.length ? (
-        <Empty icon={<Sparkles className="h-6 w-6" />} title="Belum ada perintah" text="Beri objektif ke AURELIA-01, ia akan memecahnya menjadi tugas dengan dependensi." action={<Button variant="primary" onClick={() => setCommandOpen(true)}>Beri perintah</Button>} />
+        <Empty icon={<Sparkles className="h-6 w-6" />} title="Belum ada perintah" text="Beri objektif ke Alice, ia akan memecahnya menjadi tugas dengan dependensi." action={<Button variant="primary" onClick={() => setCommandOpen(true)}>Beri perintah</Button>} />
       ) : (
         <div className="space-y-2.5">
           {directives.map((d) => {
